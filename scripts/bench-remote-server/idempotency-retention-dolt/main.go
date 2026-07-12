@@ -83,7 +83,7 @@ func main() {
 				}
 			}
 		}
-		ring, _ := ringAt(3, 1)
+		ring, _ := ringAt(1)
 		in, err := newRequest(runID, producer, repositoryEpoch, producerEpoch, sequence, payload, ring)
 		if err != nil {
 			fatal(err)

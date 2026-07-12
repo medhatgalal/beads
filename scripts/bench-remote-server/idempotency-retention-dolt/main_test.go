@@ -51,7 +51,7 @@ func TestServerControlIdentityIsExactAndFailClosed(t *testing.T) {
 }
 
 func TestVerificationRingRotationAndResigningPreserveIdentity(t *testing.T) {
-	ring, err := ringAt(3, 1)
+	ring, err := ringAt(1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,7 +84,7 @@ func TestVerificationRingRotationAndResigningPreserveIdentity(t *testing.T) {
 }
 
 func TestRequestAndEndpointIsolationGuards(t *testing.T) {
-	ring, _ := ringAt(3, 1)
+	ring, _ := ringAt(1)
 	request, err := newRequest("11111111-1111-4111-8111-111111111111", "p-same", 1, 1, 1, operationPrefix+" valid", ring)
 	if err != nil || validateRequest(request) != nil {
 		t.Fatalf("valid request err=%v validate=%v", err, validateRequest(request))
@@ -171,7 +171,7 @@ func TestProofCapsCreateOneExactBoundarySlot(t *testing.T) {
 }
 
 func TestPayloadHashSignatureAndOperationIdentityAreCanonicallyBound(t *testing.T) {
-	ring, err := ringAt(3, 1)
+	ring, err := ringAt(1)
 	if err != nil {
 		t.Fatal(err)
 	}

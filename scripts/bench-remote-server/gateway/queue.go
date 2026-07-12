@@ -871,7 +871,7 @@ WHERE ob.operation_id=? AND op.project_id=? ORDER BY ob.sequence`, operationID, 
 	return events, rows.Err()
 }
 
-func truncate(s string, n int) string {
+func truncate(s string, n int) string { //nolint:unparam // call sites share helper with explicit limit
 	if len(s) <= n {
 		return s
 	}

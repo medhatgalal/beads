@@ -630,8 +630,8 @@ func startClosedLoop(
 		producers.Add(1)
 		go func() {
 			defer producers.Done()
-			timingRNG := rand.New(rand.NewSource(deriveSeed(cfg.Seed, "actor-timing", actor)))
-			jobRNG := rand.New(rand.NewSource(deriveSeed(cfg.Seed, "actor-jobs", actor)))
+			timingRNG := rand.New(rand.NewSource(deriveSeed(cfg.Seed, "actor-timing", actor))) //nolint:gosec // G404: lab workload RNG is not security-sensitive
+			jobRNG := rand.New(rand.NewSource(deriveSeed(cfg.Seed, "actor-jobs", actor)))      //nolint:gosec // G404: lab workload RNG is not security-sensitive
 			originTeam := teams[actor%len(teams)]
 			if !sleepContext(ctx, steadyStateInitialPhase(timingRNG, profile)) {
 				return
@@ -674,7 +674,7 @@ func startOpenLoop(
 	producers.Add(1)
 	go func() {
 		defer producers.Done()
-		rng := rand.New(rand.NewSource(deriveSeed(cfg.Seed, "open-loop", 0)))
+		rng := rand.New(rand.NewSource(deriveSeed(cfg.Seed, "open-loop", 0))) //nolint:gosec // G404: lab workload RNG is not security-sensitive
 		interval := time.Second / time.Duration(cfg.OpenLoopRate)
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
@@ -709,7 +709,7 @@ func startGraphs(
 	producers.Add(1)
 	go func() {
 		defer producers.Done()
-		rng := rand.New(rand.NewSource(deriveSeed(cfg.Seed, "graphs", 0)))
+		rng := rand.New(rand.NewSource(deriveSeed(cfg.Seed, "graphs", 0))) //nolint:gosec // G404: lab workload RNG is not security-sensitive
 		for index, offset := range schedule {
 			if !sleepUntilContext(ctx, loadStarted.Add(offset)) {
 				return

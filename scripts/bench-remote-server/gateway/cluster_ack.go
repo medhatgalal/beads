@@ -406,7 +406,7 @@ func int64Value(value any) (int64, bool) {
 	case int:
 		return int64(typed), true
 	case uint64:
-		if typed > uint64(^uint64(0)>>1) {
+		if typed > (^uint64(0) >> 1) {
 			return 0, false
 		}
 		return int64(typed), true

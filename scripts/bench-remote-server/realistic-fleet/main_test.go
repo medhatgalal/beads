@@ -80,14 +80,14 @@ func TestSteadyStateInitialPhaseIsDeterministicAndSpansModelCycle(t *testing.T) 
 	cycle := time.Duration(
 		(profile.ThinkTimeSeconds + profile.CommandsPerCycle*assumedResponseSeconds) * float64(time.Second),
 	)
-	first := rand.New(rand.NewSource(deriveSeed(defaultSeed, "actor-timing", 1)))
-	second := rand.New(rand.NewSource(deriveSeed(defaultSeed, "actor-timing", 1)))
+	first := rand.New(rand.NewSource(deriveSeed(defaultSeed, "actor-timing", 1)))  //nolint:gosec // G404: lab workload RNG is not security-sensitive
+	second := rand.New(rand.NewSource(deriveSeed(defaultSeed, "actor-timing", 1))) //nolint:gosec // G404: lab workload RNG is not security-sensitive
 	if got, want := steadyStateInitialPhase(first, profile), steadyStateInitialPhase(second, profile); got != want {
 		t.Fatalf("initial phase is not deterministic: %s vs %s", got, want)
 	}
 	minimum, maximum := cycle, time.Duration(0)
 	for actor := 0; actor < actorCount(profile); actor++ {
-		rng := rand.New(rand.NewSource(deriveSeed(defaultSeed, "actor-timing", actor)))
+		rng := rand.New(rand.NewSource(deriveSeed(defaultSeed, "actor-timing", actor))) //nolint:gosec // G404: lab workload RNG is not security-sensitive
 		phase := steadyStateInitialPhase(rng, profile)
 		if phase < 0 || phase >= cycle {
 			t.Fatalf("actor %d phase %s outside [0,%s)", actor, phase, cycle)
@@ -218,8 +218,8 @@ func TestActiveSelectionSamplingAndPoolsAreDeterministic(t *testing.T) {
 	if !hotFound {
 		t.Fatal("active selection omitted hot ae target")
 	}
-	rngA := rand.New(rand.NewSource(deriveSeed(99, "actor", 7)))
-	rngB := rand.New(rand.NewSource(deriveSeed(99, "actor", 7)))
+	rngA := rand.New(rand.NewSource(deriveSeed(99, "actor", 7))) //nolint:gosec // G404: lab workload RNG is not security-sensitive
+	rngB := rand.New(rand.NewSource(deriveSeed(99, "actor", 7))) //nolint:gosec // G404: lab workload RNG is not security-sensitive
 	thinkA := sampleThink(rngA, 100*time.Second)
 	thinkB := sampleThink(rngB, 100*time.Second)
 	if thinkA != thinkB || thinkA < 80*time.Second || thinkA > 120*time.Second {
@@ -227,7 +227,7 @@ func TestActiveSelectionSamplingAndPoolsAreDeterministic(t *testing.T) {
 	}
 
 	hot, nonHot := &runtimeTarget{}, &runtimeTarget{}
-	rng := rand.New(rand.NewSource(1))
+	rng := rand.New(rand.NewSource(1)) //nolint:gosec // G404: lab workload RNG is not security-sensitive
 	for i := 0; i < 50; i++ {
 		if got := chooseTarget(rng, 0, []*runtimeTarget{nonHot}, []*runtimeTarget{nonHot}, hot); got != nonHot {
 			t.Fatal("zero hot share selected the hot target")
@@ -583,7 +583,7 @@ func TestBoundedReservoirsAreDeterministicAndTruncationBlocksProof(t *testing.T)
 func modeledPointCommands(profile workloadProfile, duration time.Duration, seed int64) int {
 	commands := 0
 	for actor := 0; actor < actorCount(profile); actor++ {
-		rng := rand.New(rand.NewSource(deriveSeed(seed, "actor-timing", actor)))
+		rng := rand.New(rand.NewSource(deriveSeed(seed, "actor-timing", actor))) //nolint:gosec // G404: lab workload RNG is not security-sensitive
 		elapsed := steadyStateInitialPhase(rng, profile)
 		for elapsed < duration {
 			commandCount := sampleCommandCount(rng, profile.CommandsPerCycle)
@@ -634,7 +634,7 @@ func TestCommandsIncludeShowAndGraphScheduleIsAbsolute(t *testing.T) {
 	profile := frozenProfiles["normal"]
 	profile.ReadFraction = 1
 	profile.HotAEShare = 1
-	rng := rand.New(rand.NewSource(42))
+	rng := rand.New(rand.NewSource(42)) //nolint:gosec // G404: lab workload RNG is not security-sensitive
 	commands := map[string]bool{}
 	for i := 0; i < 100; i++ {
 		item := makePointJob(profile, rng, "team-a", nil, nil, hot, openOperationIdentity(i))

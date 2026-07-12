@@ -169,7 +169,7 @@ func (s *gatewayService) handleSubmit(w http.ResponseWriter, r *http.Request, su
 		for !op.terminal() {
 			select {
 			case <-r.Context().Done():
-				writeError(w, http.StatusRequestTimeout, "request_cancelled", "request cancelled")
+				writeError(w, http.StatusRequestTimeout, "request_canceled", "request canceled")
 				return
 			case <-deadline.C:
 				writeJSON(w, http.StatusAccepted, op)
@@ -205,7 +205,7 @@ func (s *gatewayService) prepareOperationSubmission(
 	var request operationRequest
 	if err := dec.Decode(&request); err != nil {
 		if deterministicID && r.Context().Err() != nil {
-			writeTerminalNoAcknowledgement(w, "request_cancelled")
+			writeTerminalNoAcknowledgement(w, "request_canceled")
 			return operation{}, false
 		}
 		writeError(w, http.StatusBadRequest, "invalid_request", "invalid operation request")
@@ -213,7 +213,7 @@ func (s *gatewayService) prepareOperationSubmission(
 	}
 	if err := requireJSONEOF(dec); err != nil {
 		if deterministicID && r.Context().Err() != nil {
-			writeTerminalNoAcknowledgement(w, "request_cancelled")
+			writeTerminalNoAcknowledgement(w, "request_canceled")
 			return operation{}, false
 		}
 		writeError(w, http.StatusBadRequest, "invalid_request", "operation request has trailing data")
@@ -252,7 +252,7 @@ func (s *gatewayService) admitPreparedOperation(
 ) (operation, bool) {
 	op, err := s.queue.admit(r.Context(), in)
 	if err != nil && terminalOnly && r.Context().Err() != nil {
-		writeTerminalNoAcknowledgement(w, "request_cancelled")
+		writeTerminalNoAcknowledgement(w, "request_canceled")
 		return operation{}, false
 	}
 	if errors.Is(err, errQueueFull) {

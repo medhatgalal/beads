@@ -11,7 +11,7 @@ import (
 
 var (
 	ErrWrongTeam         = errors.New("job does not belong to this team cell")
-	ErrUnknownRepository = errors.New("repository is not catalogued in this team cell")
+	ErrUnknownRepository = errors.New("repository is not cataloged in this team cell")
 	ErrQueueFull         = errors.New("bounded scheduler queue is full")
 	ErrStaleJob          = errors.New("job identity epochs are stale")
 	ErrInvalidJob        = errors.New("job is malformed or exceeds its per-job bound")
@@ -517,7 +517,7 @@ func validLogicalID(value string) bool {
 	return len(value) > 0 && len(value) <= maximumIdentityBytes
 }
 
-func fits(current, delta, limit int) bool {
+func fits(current, delta, limit int) bool { //nolint:unparam // delta kept for symmetry with fits64
 	return current >= 0 && delta >= 0 && current <= limit && delta <= limit-current
 }
 

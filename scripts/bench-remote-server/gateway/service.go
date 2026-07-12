@@ -376,7 +376,7 @@ func safeOperationError(err error) string {
 	case errors.Is(err, context.DeadlineExceeded):
 		return "operation deadline exceeded"
 	case errors.Is(err, context.Canceled):
-		return "operation cancelled"
+		return "operation canceled"
 	case isTransient(err):
 		return "transient backend failure"
 	case isPermanent(err):
@@ -393,7 +393,7 @@ func safeLogError(err error) string {
 	case errors.Is(err, context.DeadlineExceeded):
 		return "deadline_exceeded"
 	case errors.Is(err, context.Canceled):
-		return "cancelled"
+		return "canceled"
 	case isTransient(err):
 		return "transient"
 	case isPermanent(err):

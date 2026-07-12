@@ -9,7 +9,8 @@ import (
 	"time"
 )
 
-func ringAt(maxKeys int, active uint64) (*verificationRing, error) {
+func ringAt(active uint64) (*verificationRing, error) {
+	const maxKeys = 3
 	ring := newVerificationRing(maxKeys)
 	for epoch := uint64(1); epoch <= active; epoch++ {
 		if err := ring.rotate(epoch); err != nil {
@@ -46,7 +47,7 @@ func runProof(ctx context.Context, runID string) (proofReport, error) {
 	if err != nil {
 		return finishProof(report, started), err
 	}
-	primaryRing, err := ringAt(3, 1)
+	primaryRing, err := ringAt(1)
 	if err != nil {
 		return finishProof(report, started), err
 	}
@@ -99,7 +100,7 @@ func runProof(ctx context.Context, runID string) (proofReport, error) {
 	report.RemainingGaps = []string{
 		"The server is single-node loopback Dolt; leader loss, standby promotion, and network partitions remain unproven.",
 		"Worker processes were killed at real transaction boundaries, but the Dolt server process and disk were not killed.",
-		"The stale writable branch is a controlled restore analogue; actual snapshot restore plus external catalog fencing remains unproven.",
+		"The stale writable branch is a controlled restore analog; actual snapshot restore plus external catalog fencing remains unproven.",
 		"The proof uses fixed rows, not the 24-hour retry-window, segment-size, Dolt-history, and GC plateau workloads.",
 		"The lab uses passwordless root only on loopback; production least-privilege and KMS availability remain separate gates.",
 	}
@@ -161,7 +162,7 @@ func proveConcurrentSameKey(ctx context.Context, db *sql.DB, scenarios map[strin
 	if err != nil {
 		return err
 	}
-	ring, _ := ringAt(3, 1)
+	ring, _ := ringAt(1)
 	in, _ := newRequest(runID, envelope.ProducerID, 1, 1, 1, envelope.Payload, ring)
 	business, receipts, commits, err := operationCounts(ctx, db, runID, in.OperationID)
 	if err != nil {
@@ -256,7 +257,7 @@ func proveConcurrentReceiptCapacity(ctx context.Context, db *sql.DB, scenarios m
 		}
 	}
 	for _, envelope := range envelopes {
-		ring, _ := ringAt(3, 1)
+		ring, _ := ringAt(1)
 		in, _ := newRequest(runID, envelope.ProducerID, 1, 1, 1, envelope.Payload, ring)
 		b, r, c, err := operationCounts(ctx, db, runID, in.OperationID)
 		if err != nil {
@@ -432,7 +433,7 @@ func proveCompactionAndKeys(ctx context.Context, db *sql.DB, primaryRing *verifi
 	if err != nil {
 		return err
 	}
-	rotatedRing, _ := ringAt(3, 1)
+	rotatedRing, _ := ringAt(1)
 	oldKeyRejectedBefore := rotatedRing.verify(firstRequest)
 	for epoch := uint64(2); epoch <= 4; epoch++ {
 		if err := rotatedRing.rotate(epoch); err != nil {
@@ -513,7 +514,7 @@ func proveKillBoundaries(ctx context.Context, db *sql.DB, scenarios map[string]s
 		if err != nil {
 			return err
 		}
-		ring, _ := ringAt(3, 1)
+		ring, _ := ringAt(1)
 		in, _ := newRequest(runID, test.producer, 1, 1, 1, envelope.Payload, ring)
 		businessBefore, receiptsBefore, commitsBefore, err := operationCounts(ctx, db, runID, in.OperationID)
 		if err != nil {

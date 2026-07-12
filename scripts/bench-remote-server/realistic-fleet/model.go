@@ -278,7 +278,7 @@ func selectActiveTargets(targets []targetConfig, count int, seed int64) []target
 		}
 	}
 	sort.Slice(others, func(i, j int) bool { return others[i].DatabaseID < others[j].DatabaseID })
-	rng := rand.New(rand.NewSource(deriveSeed(seed, "active-targets", 0)))
+	rng := rand.New(rand.NewSource(deriveSeed(seed, "active-targets", 0))) //nolint:gosec // G404: lab workload RNG is not security-sensitive
 	rng.Shuffle(len(others), func(i, j int) { others[i], others[j] = others[j], others[i] })
 	active := append([]targetConfig{hot}, others[:count-1]...)
 	sort.Slice(active, func(i, j int) bool { return active[i].DatabaseID < active[j].DatabaseID })

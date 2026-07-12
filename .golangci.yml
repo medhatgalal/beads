@@ -204,6 +204,14 @@ linters:
         linters:
           - misspell
         text: 'cancelled'
+      # Remote performance lab harnesses are synthetic research tools, not
+      # production Surfaces. Keep strict lint on cmd/bd and internal/*.
+      - path: 'scripts/bench-remote-server/'
+        linters:
+          - gosec
+          - unparam
+          - errcheck
+          - unconvert
 
 issues:
   uniq-by-line: true

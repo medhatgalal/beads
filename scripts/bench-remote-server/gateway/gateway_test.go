@@ -1015,7 +1015,7 @@ func TestDrainWaitsForBlockedTerminalHandlerBeforeDependencyClose(t *testing.T) 
 	select {
 	case <-done:
 	case <-time.After(2 * time.Second):
-		t.Fatal("cancelled terminal handler did not return")
+		t.Fatal("canceled terminal handler did not return")
 	}
 	drain, drainCancel := context.WithTimeout(ctx, time.Second)
 	if err := service.waitHandlers(drain); err != nil {

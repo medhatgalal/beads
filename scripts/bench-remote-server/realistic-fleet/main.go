@@ -1,6 +1,6 @@
 // realistic-fleet drives only explicitly acknowledged synthetic loopback
 // gateway targets. Closed-loop mode is the capacity candidate. Open-loop mode
-// is intentionally labelled a non-capacity failure envelope.
+// is intentionally labeled a non-capacity failure envelope.
 package main
 
 import (

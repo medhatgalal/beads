@@ -2,10 +2,13 @@ package uow
 
 import (
 	"context"
+	"time"
 
 	"github.com/steveyegge/beads/internal/storage/domain"
 	"github.com/steveyegge/beads/internal/storage/domain/db"
 )
+
+const uowCleanupTimeout = 5 * time.Second
 
 type UnitOfWork interface {
 	Close(ctx context.Context)
@@ -54,7 +57,9 @@ func (u *baseUOW) Commit(ctx context.Context, message string) error {
 }
 
 func (u *baseUOW) Close(ctx context.Context) {
-	u.tx.RollbackUnlessCommitted(ctx)
+	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), uowCleanupTimeout)
+	defer cancel()
+	u.tx.RollbackUnlessCommitted(cleanupCtx)
 }
 
 func (u *baseUOW) ConfigUseCase() domain.ConfigUseCase {

@@ -34,6 +34,7 @@ type IssueSQLRepository interface {
 	InsertBatch(ctx context.Context, issues []*types.Issue, actor string, opts InsertIssueOpts) error
 	Update(ctx context.Context, id string, updates map[string]any, actor string, opts IssueTableOpts) error
 	Claim(ctx context.Context, id, actor string, opts IssueTableOpts) (ClaimRowResult, error)
+	Heartbeat(ctx context.Context, id, actor string) error
 	Get(ctx context.Context, id string, opts IssueTableOpts) (*types.Issue, error)
 	AsOf(ctx context.Context, id, ref string) (*types.Issue, error)
 	GetByIDs(ctx context.Context, ids []string, opts IssueTableOpts) ([]*types.Issue, error)
@@ -211,6 +212,7 @@ type IssueUseCase interface {
 	UpdateIssue(ctx context.Context, id string, updates map[string]any, actor string) error
 	ClaimIssue(ctx context.Context, id, actor string) (ClaimResult, error)
 	ClaimIssueIfOpen(ctx context.Context, id, actor string) (ClaimResult, error)
+	HeartbeatIssue(ctx context.Context, id, actor string) error
 	CloseIssue(ctx context.Context, id string, params CloseIssueParams, actor string) (CloseIssueResult, error)
 	ReopenIssue(ctx context.Context, id string, params ReopenIssueParams, actor string) (ReopenIssueResult, error)
 	CountOpenChildren(ctx context.Context, id string) (int, error)
@@ -377,6 +379,19 @@ func (u *issueUseCaseImpl) update(ctx context.Context, id string, updates map[st
 
 func (u *issueUseCaseImpl) ClaimIssue(ctx context.Context, id, actor string) (ClaimResult, error) {
 	return u.claim(ctx, id, actor, false)
+}
+
+func (u *issueUseCaseImpl) HeartbeatIssue(ctx context.Context, id, actor string) error {
+	if id == "" {
+		return fmt.Errorf("heartbeat: id must not be empty")
+	}
+	if actor == "" {
+		return fmt.Errorf("heartbeat: actor must not be empty")
+	}
+	if err := u.issueRepo.Heartbeat(ctx, id, actor); err != nil {
+		return fmt.Errorf("heartbeat %s: %w", id, err)
+	}
+	return nil
 }
 
 func (u *issueUseCaseImpl) ClaimWisp(ctx context.Context, id, actor string) (ClaimResult, error) {

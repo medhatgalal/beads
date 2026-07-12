@@ -91,8 +91,23 @@ func (r *issueSQLRepositoryImpl) Update(ctx context.Context, id string, updates 
 		return nil
 	}
 
-	setClauses := make([]string, 0, len(updates))
-	args := make([]any, 0, len(updates)+1)
+	table := pickIssueTable(opts.UseWispsTable)
+	_, statusChanging := updates["status"]
+	_, assigneeChanging := updates["assignee"]
+	var oldIssue *types.Issue
+	if statusChanging || assigneeChanging {
+		var err error
+		oldIssue, err = r.Get(ctx, id, opts)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return fmt.Errorf("db: Update %s: %w", id, sql.ErrNoRows)
+			}
+			return fmt.Errorf("db: Update %s: read old issue: %w", id, err)
+		}
+	}
+
+	setClauses := make([]string, 0, len(updates)+3)
+	args := make([]any, 0, len(updates)+4)
 	for key, value := range updates {
 		if _, ok := allowedUpdateFields[key]; !ok {
 			return fmt.Errorf("db: Update: field %q is not allowed", key)
@@ -106,23 +121,12 @@ func (r *issueSQLRepositoryImpl) Update(ctx context.Context, id string, updates 
 	}
 	setClauses = append(setClauses, "updated_at = ?")
 	args = append(args, time.Now().UTC())
+
+	// Keep proxied-server updates on the same lease contract as
+	// issueops.UpdateIssueInTx, and always rewrite row_lock so a racing
+	// heartbeat/reclaim conflicts rather than cell-merging.
+	setClauses, args = issueops.ManageLeaseAndRowLockOnUpdate(oldIssue, updates, setClauses, args, ctx)
 	args = append(args, id)
-
-	table := pickIssueTable(opts.UseWispsTable)
-
-	var oldStatus types.Status
-	_, statusChanging := updates["status"]
-	if statusChanging {
-		//nolint:gosec // G201: table is one of two hardcoded constants
-		if err := r.runner.QueryRowContext(ctx,
-			fmt.Sprintf("SELECT status FROM %s WHERE id = ?", table), id,
-		).Scan(&oldStatus); err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return fmt.Errorf("db: Update %s: %w", id, sql.ErrNoRows)
-			}
-			return fmt.Errorf("db: Update %s: read old status: %w", id, err)
-		}
-	}
 
 	//nolint:gosec // G201: table is one of two hardcoded constants
 	q := fmt.Sprintf("UPDATE %s SET %s WHERE id = ?", table, strings.Join(setClauses, ", "))
@@ -148,7 +152,7 @@ func (r *issueSQLRepositoryImpl) Update(ctx context.Context, id string, updates 
 
 	if statusChanging {
 		newStatus := coerceStatus(updates["status"])
-		oldActive := oldStatus != types.StatusClosed && oldStatus != types.StatusPinned
+		oldActive := oldIssue.Status != types.StatusClosed && oldIssue.Status != types.StatusPinned
 		newActive := newStatus != types.StatusClosed && newStatus != types.StatusPinned
 		if oldActive != newActive {
 			var (
@@ -272,6 +276,19 @@ func (r *issueSQLRepositoryImpl) Claim(ctx context.Context, id, actor string, op
 		StartedAtWasZero: startedWasZero,
 		OldIssue:         oldIssue,
 	}, nil
+}
+
+// Heartbeat uses the canonical issueops implementation so the proxied UOW path
+// shares lease ownership, wisp rejection, and row_lock conflict semantics with
+// embedded/server storage.
+func (r *issueSQLRepositoryImpl) Heartbeat(ctx context.Context, id, actor string) error {
+	if id == "" {
+		return errors.New("db: Heartbeat: id must not be empty")
+	}
+	if actor == "" {
+		return errors.New("db: Heartbeat: actor must not be empty")
+	}
+	return issueops.HeartbeatIssueInTx(ctx, r.runner, id, actor)
 }
 
 func (r *issueSQLRepositoryImpl) Get(ctx context.Context, id string, opts domain.IssueTableOpts) (*types.Issue, error) {

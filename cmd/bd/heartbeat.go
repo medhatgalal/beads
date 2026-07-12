@@ -45,6 +45,9 @@ Examples:
 
 		ctx := rootCtx
 		id := args[0]
+		if usesProxiedServer() {
+			return runHeartbeatProxiedServer(ctx, id)
+		}
 
 		result, err := resolveAndGetIssueForMutation(ctx, store, id)
 		if err != nil {

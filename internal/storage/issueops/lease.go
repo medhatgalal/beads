@@ -106,12 +106,16 @@ func LeaseTTL(ctx context.Context) time.Duration {
 // in_progress (already closed or already reclaimed), affects no rows and returns
 // storage.ErrNotClaimable so the caller learns its lease is gone.
 //
-// Routes to the correct table (issues/wisps). The caller owns Dolt versioning.
+// Wisps are ephemeral and never reclaimed by the lease reaper, so heartbeats
+// reject them rather than extending a lease that cannot participate in recovery.
+// The caller owns Dolt versioning.
 //
-//nolint:gosec // G201: table names come from WispTableRouting (hardcoded constants)
+//nolint:gosec // G201: issueTable is the hardcoded permanent issues table.
 func HeartbeatIssueInTx(ctx context.Context, tx DBTX, id, actor string) error {
-	isWisp := IsActiveWispInTx(ctx, tx, id)
-	issueTable, _, _, _ := WispTableRouting(isWisp)
+	if IsActiveWispInTx(ctx, tx, id) {
+		return fmt.Errorf("%w: %s is ephemeral", storage.ErrNotClaimable, id)
+	}
+	issueTable := "issues"
 
 	now := time.Now().UTC()
 	leaseClause, leaseArgs := leaseSetClause(now, leaseTTL(ctx))

@@ -3,8 +3,10 @@ package db
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
+	"github.com/steveyegge/beads/internal/storage"
 	"github.com/steveyegge/beads/internal/storage/domain"
 	"github.com/steveyegge/beads/internal/storage/issueops"
 	"github.com/steveyegge/beads/internal/types"
@@ -31,6 +33,10 @@ func (s *testSuite) TestIssueSQLRepository() {
 		s.Run("NormalizesStatusType", s.issueUpdateStatusType)
 		s.Run("NormalizesTimestampToUTC", s.issueUpdateNormalizesTimestamp)
 		s.Run("MissingIDWithStatusChangeReturnsErrNoRows", s.issueUpdateMissingIDWithStatus)
+		s.Run("UnrelatedEditPreservesLeaseAndChangesRowLock", s.issueUpdateUnrelatedEditLeaseParity)
+		s.Run("OwnershipChangesMaintainLeaseAndRowLockContract", s.issueUpdateOwnershipChangeLeaseParity)
+		s.Run("GenericClaimStateStampsLease", s.issueUpdateGenericClaimStampsLease)
+		s.Run("WispUsesSameLeaseAndRowLockContract", s.issueUpdateWispLeaseParity)
 	})
 	s.Run("Claim", func() {
 		s.Run("FreshOpenSetsAssigneeAndStartedAt", s.issueClaimFresh)
@@ -41,6 +47,10 @@ func (s *testSuite) TestIssueSQLRepository() {
 		s.Run("EmptyIDReturnsError", s.issueClaimEmptyID)
 		s.Run("RecordsClaimedEvent", s.issueClaimRecordsEvent)
 		s.Run("StampsLeaseAndIsReclaimable", s.issueClaimStampsLease)
+	})
+	s.Run("Heartbeat", func() {
+		s.Run("UsesCanonicalLeaseContract", s.issueHeartbeatUsesCanonicalLeaseContract)
+		s.Run("RejectsWispWithoutMutation", s.issueHeartbeatRejectsWisp)
 	})
 	s.Run("Get", func() {
 		s.Run("MissingIDReturnsErrNoRows", s.issueGetMissing)
@@ -90,6 +100,47 @@ func newTestIssue(id, title string) *types.Issue {
 		Priority:  2,
 		IssueType: types.TypeTask,
 	}
+}
+
+type updateLeaseState struct {
+	status       types.Status
+	assignee     sql.NullString
+	leaseExpires sql.NullTime
+	heartbeatAt  sql.NullTime
+	rowLock      int64
+}
+
+func (s *testSuite) readUpdateLeaseState(table, id string) updateLeaseState {
+	s.T().Helper()
+	var state updateLeaseState
+	//nolint:gosec // G201: callers pass only the hardcoded issues/wisps tables.
+	s.Require().NoError(s.Runner().QueryRowContext(s.Ctx(), fmt.Sprintf(`
+		SELECT status, assignee, lease_expires_at, heartbeat_at, row_lock
+		FROM %s WHERE id = ?`, table), id).Scan(
+		&state.status, &state.assignee, &state.leaseExpires, &state.heartbeatAt, &state.rowLock,
+	))
+	return state
+}
+
+func (s *testSuite) seedUpdateLease(id string, opts domain.IssueTableOpts) updateLeaseState {
+	s.T().Helper()
+	r := s.issueRepo()
+	issue := newTestIssue(id, "leased "+id)
+	issue.Ephemeral = opts.UseWispsTable
+	s.Require().NoError(r.Insert(s.Ctx(), issue, "tester", domain.InsertIssueOpts{UseWispsTable: opts.UseWispsTable}))
+	ctx := issueops.WithLeaseTTL(s.Ctx(), time.Hour)
+	claim, err := r.Claim(ctx, id, "alice", opts)
+	s.Require().NoError(err)
+	s.Require().True(claim.Updated)
+	table := "issues"
+	if opts.UseWispsTable {
+		table = "wisps"
+	}
+	state := s.readUpdateLeaseState(table, id)
+	s.Require().True(state.leaseExpires.Valid)
+	s.Require().True(state.heartbeatAt.Valid)
+	s.Require().NotZero(state.rowLock)
+	return state
 }
 
 func (s *testSuite) issueInsertRoundTrip() {
@@ -282,6 +333,108 @@ func (s *testSuite) issueUpdateNormalizesTimestamp() {
 	s.Require().NoError(err)
 	s.Require().NotNil(out.DueAt)
 	s.Equal(due.UTC().Unix(), out.DueAt.Unix(), "due_at should round-trip via UTC")
+}
+
+func (s *testSuite) issueUpdateUnrelatedEditLeaseParity() {
+	const id = "bd-upd-lease-title"
+	before := s.seedUpdateLease(id, domain.IssueTableOpts{})
+
+	s.Require().NoError(s.issueRepo().Update(s.Ctx(), id,
+		map[string]any{"title": "unrelated edit"}, "editor", domain.IssueTableOpts{}))
+	after := s.readUpdateLeaseState("issues", id)
+
+	s.True(after.leaseExpires.Valid && after.leaseExpires.Time.Equal(before.leaseExpires.Time),
+		"unrelated edit must preserve lease expiry: before=%v after=%v", before.leaseExpires, after.leaseExpires)
+	s.True(after.heartbeatAt.Valid && after.heartbeatAt.Time.Equal(before.heartbeatAt.Time),
+		"unrelated edit must preserve heartbeat: before=%v after=%v", before.heartbeatAt, after.heartbeatAt)
+	s.NotEqual(before.rowLock, after.rowLock, "every update must rewrite row_lock")
+}
+
+func (s *testSuite) issueUpdateOwnershipChangeLeaseParity() {
+	tests := []struct {
+		name         string
+		id           string
+		updates      map[string]any
+		wantStatus   types.Status
+		wantAssignee string
+		wantLease    bool
+	}{
+		{name: "close", id: "bd-upd-lease-close", updates: map[string]any{"status": string(types.StatusClosed)}, wantStatus: types.StatusClosed, wantAssignee: "alice"},
+		{name: "unassign", id: "bd-upd-lease-unassign", updates: map[string]any{"assignee": ""}, wantStatus: types.StatusInProgress, wantAssignee: ""},
+		{name: "transfer", id: "bd-upd-lease-transfer", updates: map[string]any{"assignee": "bob"}, wantStatus: types.StatusInProgress, wantAssignee: "bob", wantLease: true},
+	}
+	for _, tt := range tests {
+		s.Run(tt.name, func() {
+			before := s.seedUpdateLease(tt.id, domain.IssueTableOpts{})
+			s.Require().NoError(s.issueRepo().Update(s.Ctx(), tt.id, tt.updates, "dispatcher", domain.IssueTableOpts{}))
+			after := s.readUpdateLeaseState("issues", tt.id)
+			s.Equal(tt.wantStatus, after.status)
+			s.Equal(tt.wantAssignee, after.assignee.String)
+			s.Equal(tt.wantLease, after.leaseExpires.Valid, "lease validity")
+			s.Equal(tt.wantLease, after.heartbeatAt.Valid, "heartbeat validity")
+			s.NotEqual(before.rowLock, after.rowLock, "ownership/state change must rewrite row_lock")
+		})
+	}
+}
+
+func (s *testSuite) issueUpdateGenericClaimStampsLease() {
+	const id = "bd-upd-generic-claim"
+	r := s.issueRepo()
+	s.Require().NoError(r.Insert(s.Ctx(), newTestIssue(id, "generic claim"), "tester", domain.InsertIssueOpts{}))
+
+	s.Require().NoError(r.Update(s.Ctx(), id, map[string]any{
+		"status": string(types.StatusInProgress), "assignee": "alice",
+	}, "dispatcher", domain.IssueTableOpts{}))
+	after := s.readUpdateLeaseState("issues", id)
+	s.Equal(types.StatusInProgress, after.status)
+	s.Equal("alice", after.assignee.String)
+	s.True(after.leaseExpires.Valid, "generic in_progress assignment must stamp a lease")
+	s.True(after.heartbeatAt.Valid, "generic in_progress assignment must stamp a heartbeat")
+	s.NotZero(after.rowLock, "generic update must still rewrite row_lock")
+}
+
+func (s *testSuite) issueUpdateWispLeaseParity() {
+	const id = "bd-upd-wisp-lease"
+	opts := domain.IssueTableOpts{UseWispsTable: true}
+	before := s.seedUpdateLease(id, opts)
+	r := s.issueRepo()
+
+	s.Require().NoError(r.Update(s.Ctx(), id, map[string]any{"title": "wisp edit"}, "editor", opts))
+	edited := s.readUpdateLeaseState("wisps", id)
+	s.True(edited.leaseExpires.Valid && edited.leaseExpires.Time.Equal(before.leaseExpires.Time))
+	s.True(edited.heartbeatAt.Valid && edited.heartbeatAt.Time.Equal(before.heartbeatAt.Time))
+	s.NotEqual(before.rowLock, edited.rowLock)
+
+	s.Require().NoError(r.Update(s.Ctx(), id, map[string]any{"assignee": "bob"}, "dispatcher", opts))
+	transferred := s.readUpdateLeaseState("wisps", id)
+	s.True(transferred.leaseExpires.Valid)
+	s.True(transferred.heartbeatAt.Valid)
+	s.NotEqual(edited.rowLock, transferred.rowLock)
+}
+
+func (s *testSuite) issueHeartbeatUsesCanonicalLeaseContract() {
+	const id = "bd-heartbeat-parity"
+	before := s.seedUpdateLease(id, domain.IssueTableOpts{})
+	ctx := issueops.WithLeaseTTL(s.Ctx(), 2*time.Hour)
+
+	s.Require().NoError(s.issueRepo().Heartbeat(ctx, id, "alice"))
+	after := s.readUpdateLeaseState("issues", id)
+	s.True(after.leaseExpires.Valid && after.leaseExpires.Time.After(before.leaseExpires.Time))
+	s.True(after.heartbeatAt.Valid)
+	s.NotEqual(before.rowLock, after.rowLock)
+
+	err := s.issueRepo().Heartbeat(ctx, id, "bob")
+	s.ErrorIs(err, storage.ErrAlreadyClaimed)
+}
+
+func (s *testSuite) issueHeartbeatRejectsWisp() {
+	const id = "bd-heartbeat-wisp"
+	opts := domain.IssueTableOpts{UseWispsTable: true}
+	before := s.seedUpdateLease(id, opts)
+
+	err := s.issueRepo().Heartbeat(issueops.WithLeaseTTL(s.Ctx(), 2*time.Hour), id, "alice")
+	s.ErrorIs(err, storage.ErrNotClaimable)
+	s.Equal(before, s.readUpdateLeaseState("wisps", id), "rejected heartbeat mutated the wisp")
 }
 
 func (s *testSuite) issueGetMissing() {

@@ -770,6 +770,7 @@ func TestProxiedServerReadyConcurrent(t *testing.T) {
 
 func TestProxiedServerReadyClaimConcurrent(t *testing.T) {
 	requireProxiedServerEnv(t)
+	t.Skip("requires a test-only proxied init fixture; production --proxied-server init remains intentionally gated, and fresh-UOW claim concurrency is covered below the CLI boundary")
 	bd := buildEmbeddedBD(t)
 	p := bdProxiedInit(t, bd, "rcx")
 	issue := bdProxiedCreate(t, bd, p.dir, "Atomic claim target", "--label", "atomic")
@@ -798,6 +799,10 @@ func TestProxiedServerReadyClaimConcurrent(t *testing.T) {
 
 	winners := 0
 	for i, r := range results {
+		if r.err != nil {
+			t.Errorf("worker %d leaked claim/retry failure: %v\nstdout: %s\nstderr: %s", i, r.err, r.stdout, r.stderr)
+			continue
+		}
 		s := strings.TrimSpace(r.stdout)
 		start := strings.Index(s, "[")
 		if start < 0 {
@@ -831,5 +836,18 @@ func TestProxiedServerReadyClaimConcurrent(t *testing.T) {
 	}
 	if final.Assignee == "" {
 		t.Error("final Assignee empty")
+	}
+	db := openProxiedDB(t, p)
+	var claimEvents, claimCommits int
+	if err := db.QueryRowContext(context.Background(),
+		"SELECT COUNT(*) FROM events WHERE issue_id = ? AND event_type = 'claimed'", issue.ID).Scan(&claimEvents); err != nil {
+		t.Fatalf("count claim events: %v", err)
+	}
+	if err := db.QueryRowContext(context.Background(),
+		"SELECT COUNT(*) FROM dolt_log WHERE message = ?", "bd: ready --claim "+issue.ID).Scan(&claimCommits); err != nil {
+		t.Fatalf("count claim commits: %v", err)
+	}
+	if claimEvents != 1 || claimCommits != 1 {
+		t.Errorf("durable claim artifacts: events=%d commits=%d, want exactly 1/1", claimEvents, claimCommits)
 	}
 }

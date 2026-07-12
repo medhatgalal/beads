@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "target": "workload-calibrated Beads fleet with team isolation",
+  "experiment_decision_state": "dry_run_ready",
+  "production_decision_state": "hold",
+  "experiment_plan_state": "ready",
+  "paced_workload_runner_state": "not_implemented",
+  "capacity_scorecard_role": "authoritative_for_replanned_experiment",
+  "legacy_failure_envelope_scorecard": "REDACTED_OPERATOR_LOCAL_PATH",
+  "workload_model_status": "provisional_needs_aggregate_telemetry",
+  "assumed_beads_response_seconds_for_planning_math": 1,
+  "profiles": {
+    "normal": {
+      "registered_people": 300,
+      "active_fraction": 0.1,
+      "agents_per_active_person": 1.5,
+      "think_time_seconds": 90,
+      "commands_per_cycle": 2,
+      "fleet_commands_per_second": 0.98,
+      "read_percent": 70,
+      "write_percent": 30,
+      "hot_ae_share": 0.25,
+      "hot_ae_point_writes_per_second": 0.07
+    },
+    "busy": {
+      "registered_people": 300,
+      "active_fraction": 0.25,
+      "agents_per_active_person": 2,
+      "think_time_seconds": 45,
+      "commands_per_cycle": 2.5,
+      "fleet_commands_per_second": 7.89,
+      "read_percent": 60,
+      "write_percent": 40,
+      "hot_ae_share": 0.4,
+      "hot_ae_point_writes_per_second": 1.26
+    },
+    "coordinated_burst_5_minutes": {
+      "registered_people": 300,
+      "active_fraction": 0.5,
+      "agents_per_active_person": 2.5,
+      "think_time_seconds": 30,
+      "commands_per_cycle": 3,
+      "fleet_commands_per_second": 34.09,
+      "read_percent": 50,
+      "write_percent": 50,
+      "hot_ae_share": 0.5,
+      "hot_ae_point_writes_per_second": 8.52
+    }
+  },
+  "large_graph_profiles": {
+    "normal_per_hour_fleet": 4,
+    "busy_per_hour_fleet": 30,
+    "coordinated_burst_count": 30,
+    "coordinated_burst_seconds": 120,
+    "coordinated_burst_hot_ae_share": 0.5
+  },
+  "hard_gates": {
+    "report_rtt_ms": [
+      20,
+      50,
+      100,
+      150,
+      200
+    ],
+    "acceptance_rtt_ms": 150,
+    "ping_p95_ms": 1500,
+    "list_ready_show_p95_ms": 2000,
+    "point_write_p95_ms": 3000,
+    "graph_100_200_wall_ms": 60000,
+    "ordinary_wait_behind_structural_ms": 3000,
+    "normal_and_busy_queue_wait_p95_ms": 500,
+    "bounded_burst_queue_wait_p95_ms": 2000,
+    "steady_utilization_max": 0.6,
+    "bounded_burst_utilization_max": 0.8,
+    "other_team_p95_multiplier": 1.25,
+    "reserved_admin_reconcile_failover_fraction": 0.2,
+    "cell_max_connections": 256,
+    "cold_heavy_idle_connections": 64,
+    "correctness_failures": 0
+  },
+  "test_tracks": {
+    "promotion": "closed_loop_llm_and_human_paced",
+    "resilience": "bounded_open_loop_burst_and_saturation",
+    "soak": "churn_gc_backup_restore_retention"
+  },
+  "sharding_order": [
+    "repository_database",
+    "team_placement_cell",
+    "dedicated_hot_repository_server",
+    "read_and_projection_shards",
+    "admission_and_operation_class_shards",
+    "conflict_certified_point_lanes",
+    "multi_database_subgraphs_only_after_shardability_gate"
+  ]
+}

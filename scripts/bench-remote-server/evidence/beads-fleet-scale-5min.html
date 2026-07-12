@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Beads Remote Team Performance Lab - 5 Minute Decision Brief</title>
+  <style>
+    :root { color-scheme: light dark; --ink:#172033; --muted:#5b6475; --paper:#f7f8fb; --card:#fff; --line:#d9deea; --blue:#2457d6; --green:#117a4b; --amber:#9a6200; --red:#b42318; }
+    * { box-sizing: border-box; }
+    body { margin:0; font:15px/1.48 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; background:var(--paper); color:var(--ink); }
+    #main { max-width:1040px; margin:auto; padding:28px 22px 70px; }
+    h1 { font-size:2rem; line-height:1.1; margin:.25rem 0 .5rem; }
+    h2 { font-size:1.25rem; margin:1.8rem 0 .7rem; border-bottom:1px solid var(--line); padding-bottom:.35rem; }
+    h3 { font-size:1rem; margin:1rem 0 .35rem; }
+    p { margin:.5rem 0 .8rem; }
+    a { color:var(--blue); }
+    .eyebrow { color:var(--muted); letter-spacing:.08em; text-transform:uppercase; font-size:.76rem; font-weight:700; }
+    .verdict { background:#fff4df; border:2px solid #f0b84b; border-radius:12px; padding:16px 18px; margin:18px 0; }
+    .verdict strong { color:#7b4b00; font-size:1.12rem; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:13px 15px; }
+    .card .label { color:var(--muted); font-size:.78rem; text-transform:uppercase; letter-spacing:.05em; }
+    .card .value { font-size:1.25rem; font-weight:750; margin-top:2px; }
+    .good { border-left:4px solid var(--green); } .bad { border-left:4px solid var(--amber); }
+    .ugly { border-left:4px solid var(--red); } .dog { border-left:4px solid #687083; }
+    table { width:100%; border-collapse:collapse; background:var(--card); font-size:.9rem; }
+    th,td { text-align:left; vertical-align:top; border:1px solid var(--line); padding:8px 9px; }
+    th { background:#edf1f8; }
+    code { background:#edf1f8; padding:.08rem .28rem; border-radius:4px; }
+    ul,ol { padding-left:1.25rem; }
+    li { margin:.3rem 0; }
+    .pass { color:var(--green); font-weight:700; } .hold { color:var(--amber); font-weight:700; } .fail { color:var(--red); font-weight:700; }
+    .truth { border:1px solid var(--red); background:#fff2f0; border-radius:9px; padding:12px 14px; }
+    .appendix { background:var(--card); border:1px solid var(--line); border-radius:9px; margin:10px 0; padding:8px 12px; }
+    .small { color:var(--muted); font-size:.84rem; }
+    .flow { text-align:center; font-weight:650; padding:12px; background:#eef4ff; border-radius:8px; overflow-wrap:anywhere; }
+    @media (prefers-color-scheme:dark) { :root { --ink:#e8ebf2; --muted:#aab2c3; --paper:#10141d; --card:#171d28; --line:#333c4d; --blue:#8eb2ff; } th,code { background:#222b3a; } .verdict { background:#342712; } .verdict strong { color:#ffd58b; } .truth { background:#321b1c; } .flow { background:#182842; } }
+  </style>
+</head>
+<body><div id="main">
+  <div class="eyebrow">Decision brief | 12 July 2026 | synthetic lab only</div>
+  <h1>Beads at team scale: move execution near Dolt</h1>
+  <p>This is the five-minute reading path. Expand the audit sections only if you need the experiment ledger, code-review boundary, or migration detail.</p>
+
+  <div class="verdict">
+    <strong>Terminal outcome: GATEWAY_ARCHITECTURE_REQUIRED</strong><br>
+    Direct Beads-over-SQL across a 150 ms WAN cannot meet the routine-command targets with a small patch set. Historical gateway prototype runs cleared the measured latency gates and current-source component tests prove viable exactly-once/recovery primitives. Production remains <b>HOLD</b>: the primitives are separately proven, not yet one source-bound, multi-node fleet cell.
+  </div>
+
+  <div class="grid">
+    <div class="card"><div class="label">Direct ping p95 at 150 ms</div><div class="value fail">2.48-3.42 s</div></div>
+    <div class="card"><div class="label">Historical gateway ping p95 at 150 ms</div><div class="value pass">162 ms</div></div>
+    <div class="card"><div class="label">Historical gateway 100/200 graph p95</div><div class="value pass">7.50 s</div></div>
+    <div class="card"><div class="label">Fleet decision</div><div class="value hold">Architecture yes; deploy no</div></div>
+  </div>
+
+  <h2>What we tried, and what changed the answer</h2>
+  <table>
+    <thead><tr><th>Layer / hypothesis</th><th>What happened</th><th>Decision</th></tr></thead>
+    <tbody>
+      <tr><td>Embedded and co-located Dolt</td><td>Healthy; establishes that Dolt itself is not the WAN bottleneck.</td><td class="pass">Retain</td></tr>
+      <tr><td>IAP, SSH forwarding, direct SQL/TLS shape, VPN/overlay ideas, DSN discovery, prepared statements, read fast paths</td><td>Can trim constants, but cannot remove repeated 150 ms application round trips. The best retained direct reads still missed routine SLOs.</td><td class="fail">Insufficient</td></tr>
+      <tr><td>Set/bulk graph work, in-memory DAG checks, reduced recomputation</td><td>Already improved upstream and useful; graph creation still needs near-data execution for predictable WAN behavior.</td><td class="pass">Keep upstream work</td></tr>
+      <tr><td>Warm connections / persistent daemon</td><td>Helps connection setup, not serial command SQL. A daemon on the workstation still pays the WAN query graph.</td><td class="hold">Inferior boundary</td></tr>
+      <tr><td>Near-data high-level gateway</td><td>Historical prototype at 150 ms: ping/list/ready/show 160-203 ms; create/update/close 206-298 ms; 100-node/200-edge graph 7.50 s.</td><td class="pass">Required boundary</td></tr>
+      <tr><td>Terminal outcomes, idempotency, queue-loss rebuild, retry conflict</td><td>Two gateway peers produced one canonical effect; conflicting bodies remained 409; an empty local queue rebuilt from Dolt with zero executions.</td><td class="pass">Retain component</td></tr>
+      <tr><td>Dolt cluster acknowledgement</td><td>A historical same-host/same-disk mechanism run failed closed with 503 while standby was down; catch-up and same-key retry returned 200; acknowledged state survived promotion. Manual epoch repair was required.</td><td class="hold">Mechanism proven; HA ops not</td></tr>
+      <tr><td>100-database pools and memory tuning</td><td>28 app connections under Dolt cap 32 completed two 10k churn runs. A 3 GiB Go limit avoided material regression; 1 GiB thrashed with 14,975 GC cycles.</td><td class="hold">Bounded candidate</td></tr>
+      <tr><td>Async outbox/queue</td><td>Responsiveness is attractive, but a 202 before canonical Dolt state creates an RPO dependency on gateway-local SQLite.</td><td class="fail">Do not acknowledge locally</td></tr>
+    </tbody>
+  </table>
+  <p class="small">No finite lab can prove that every imaginable technology was tried. We traversed a bounded falsification tree across transport, connection, query shape, Beads semantics, Dolt transactions/cluster/GC, pooling, sync and async services, routing, scheduling, retention, recovery and sharding. Untried or newly discovered items are listed as dogs, not silently counted as successes.</p>
+
+  <h2>The fleet design for hundreds of people and repositories</h2>
+  <div class="flow">OIDC/mTLS caller -> signed team catalog -> team cell -> bounded scheduler -> one repository actor -> terminal Beads UOW -> Dolt primary/standby -> canonical receipt + outbox</div>
+  <ul>
+    <li><b>Base shard:</b> one Dolt database per repository. A signed catalog maps <code>team_id + repository_id</code> to one cell/database and carries catalog, database, producer and key epochs.</li>
+    <li><b>Team isolation:</b> do not merely share logical queues. Give a team a cell/failure-domain budget, unique workload credentials, queue and pool quotas, then compare quiet-team p95 against its isolated baseline. The current catalog model still permits shared endpoints, so physical isolation is a design requirement, not a proven property.</li>
+    <li><b>Cold fleet:</b> zero connections for idle repositories; lazily create one serial repository actor. Per cell, use 28 resident application leases and Dolt <code>max_connections=32</code>, reserving four control/drain slots.</li>
+    <li><b>Hot <code>ae</code>:</b> use a dedicated gateway cell and dedicated Dolt pair first. The measured single database met the original p95 criteria; sharding it now would create cross-shard claim, hierarchy, dependency-cycle and restore invariants without evidence of need.</li>
+    <li><b>If <code>ae</code> later fails:</b> shard only by a stable ownership key that keeps issue, claim, hierarchy and write dependencies local (for example, durable workstream home). Global search/reporting becomes an eventual projection; cross-shard dependencies need an explicit coordinator and reconciliation log.</li>
+  </ul>
+
+  <h2>Realistic concurrency, not a land-speed stunt</h2>
+  <p>The frozen model accounts for LLM latency, agent think time, human cognitive load and a few concurrent agents per person: about <b>0.98 commands/s normal</b>, <b>7.90/s busy</b>, and a coordinated <b>34.09/s burst</b>. One 120-second busy run delivered 8.33/s; one burst delivered 35.23/s. Exact independent effects passed on two databases.</p>
+  <div class="truth"><b>Truth boundary:</b> those runs used the legacy operations lane, only two databases/two destination teams, and one window each. Their JSON says <code>capacity_promotion_eligible=false</code>. They prove an SLO/exact-effect subset, not 300-person identity, terminal durability, recovery, utilization or fleet capacity. Burst create p99 was 3.24 s and max 4.81 s, exposing head-of-line tail risk.</div>
+
+  <h2>Good, bad, ugly, and dogs not barking</h2>
+  <div class="grid">
+    <div class="card good"><h3>Good</h3><p>Near-data latency; deterministic terminal IDs; one canonical Dolt receipt/outbox; queue-loss rebuild; real two-process CAS hard caps; fail-closed cluster warning handling; bounded connection pool; focused tests/race/vet.</p></div>
+    <div class="card bad"><h3>Bad</h3><p>Components are not integrated. The Beads UOW patch covers update, heartbeat and ready/claim but leaves 18 same-UOW commit retry callers. Current safety changes postdate historical performance evidence.</p></div>
+    <div class="card ugly"><h3>Ugly</h3><p>Dolt <code>SELECT FOR UPDATE</code> is ineffective here; use a versioned <code>UPDATE</code> CAS ledger. Replication timeout is SQL warning 3024, not an error. A 503 means unknown: retry the same key/body, never compensate with a new key.</p></div>
+    <div class="card dog"><h3>Dogs not barking</h3><p>No multi-zone partition/RTO, old-snapshot restore, 300 principal revocation, physical team bulkhead proof, durable outbox consumer/DLQ, schema/rolling upgrade, disk-full/KMS/clock-skew, or 24-hour RSS/history/GC plateau.</p></div>
+  </div>
+
+  <h2>Locks, data damage, reconciliation and recovery</h2>
+  <ul>
+    <li><b>Conflicts:</b> Dolt optimistic writers can return 1213. Retry the entire high-level operation from a fresh UOW/snapshot, never only <code>DOLT_COMMIT</code>. Serialize one repository actor and use CAS for shared capacity counters.</li>
+    <li><b>Partial graphs / lost edges:</b> validate DAG in memory, perform nodes and edges in one transaction, commit one canonical outcome, and independently inspect issue/event/dependency/commit counts. Failure must leave zero graph state.</li>
+    <li><b>Duplicate claims:</b> subject-bound deterministic operations plus one atomic claim UOW; no same-key body change; audit one claim event and one commit.</li>
+    <li><b>Ambiguous response:</b> 503 + <code>Retry-After</code>; retry identical key/body. The gateway reads canonical Dolt first. A local queue is a projection and can be rebuilt. Persistent failures stop after three tries; retained source caps terminal projection at 20,000 rows/128 MiB and retry-exhausted projection at 100.</li>
+    <li><b>Retention/restore:</b> watermark compacted sequences, rotate producer/database/key epochs, and keep the newest catalog watermark in a stronger control plane that does not roll back with the cell. The real-Dolt CAS proof passed; an actual old-backup restore remains required.</li>
+  </ul>
+
+  <h2>Recommendation and the next experiment</h2>
+  <p><b>Build one converged "epoch-fenced repository cell"; do not deploy the current fork.</b> This is a new synthesis for this environment, not a claim of global invention: terminal high-level Beads operations, a stronger monotonic routing watermark, per-repository actors, bounded fair admission, lazy 28/32 pools, canonical CAS retention, subject identity and cluster acknowledgement.</p>
+  <ol>
+    <li>Wire terminal-v2 only + the complete Beads fresh-UOW kernel + signed catalog/watermark + scheduler + lazy pools + CAS retention + cluster guard in one binary. Add OIDC/mTLS identities and per-team secrets/quotas.</li>
+    <li>From a committed source/binary manifest, run five busy and three burst windows at 150 ms across at least 100 real repo DBs, 30 team/principal identities and dedicated <code>ae</code>. Mix create/update/close/claim/batch/dependencies/hierarchy/graph; enforce ordinary p99 under 3 s and quiet-team p95 no worse than 1.25x isolated.</li>
+    <li>Use two gateway peers and two physically separate Dolt nodes. Kill/partition at admission, mutation, outcome commit, replication barrier, response, projection loss, promotion and same-key retry.</li>
+    <li>Restore an older backup; advance catalog/database/producer/key epochs; inject stale queues/workers; prove every stale request is fenced with no phantom success.</li>
+    <li>Run 24 hours or one million fixed-cardinality mixed operations. Gate RSS, heap, FDs, connections, queues, receipts, dead letters, outbox, Dolt history, barrier commits, disk and GC on plateaus.</li>
+  </ol>
+  <p>This convergence needs a new cost/isolation approval because the approved lab had one VM; physically separate failure domains cannot honestly be simulated on it.</p>
+
+  <h2>Migration, rollback, cost and ownership</h2>
+  <ul>
+    <li><b>Migrate:</b> shadow reads -> duplicate terminal decisions without writes -> canary one team -> dedicated <code>ae</code> -> team cells. Keep direct embedded/co-located mode unchanged.</li>
+    <li><b>Rollback:</b> stop gateway admission, drain terminal operations, verify canonical receipts/outbox, return clients to embedded/local sync. Never roll back catalog/database epochs or reuse retired producer/key epochs.</li>
+    <li><b>Operations:</b> a gateway adds identity, certificates, routing, queue/dead-letter, backup, failover and on-call burden. That burden is justified only because it removes the structural WAN floor and provides one enforceable correctness boundary.</li>
+    <li><b>Cost:</b> the disposable <code>peng-os</code> e2-standard-2/50 GB lab was about $0.074/hour compute and remained below the approved envelope. It is now <code>TERMINATED</code>; the boot disk is preserved with automatic deletion scheduled for 14 July. The rate is an estimate, not a billing assertion.</li>
+  </ul>
+
+  <h2>Delivery state</h2>
+  <ul>
+    <li>Beads UOW safety branch: <code>AI/perf-remote-server-uow-parity</code>, <a href="https://github.com/medhatgalal/beads/pull/1">Draft PR #1</a>. Review verdict: useful partial patch, HOLD merge.</li>
+    <li>Gateway lab branch: <code>AI/perf-remote-server-gateway-prototype</code>, <a href="https://github.com/medhatgalal/beads/pull/2">Draft PR #2</a>. Review verdict: architecture evidence only, HOLD merge. <code>cluster-lab</code> is explicitly excluded.</li>
+    <li>Experiment ledger: <a href="experiment-ledger.jsonl">experiment-ledger.jsonl</a>. Authoritative retention proof: <a href="retention-dolt-proof-c26c8325.json">proof</a>, <a href="retention-dolt-inspection-c26c8325.json">inspection</a>, <a href="retention-dolt-c26c8325.sha256">checksums and deterministic rebuild record</a>.</li>
+    <li>Memory packet: <a href="dolt-memory-lab/REPORT.md">report</a> and <a href="dolt-memory-lab/dolt-memory-comparison.json">aggregate JSON</a>.</li>
+  </ul>
+
+  <div class="appendix"><h3>Audit appendix: baseline, scope, tests and promotion decision</h3>
+    <h3>Goal contract and search surface</h3>
+    <p>Objective: routine p95 below 1.5/2/3 seconds and 100/200 graph below 60 seconds at 150 ms, with atomic rollback, unique claims, intact edges, recovery and eight-writer correctness. Search covered connection/auth, discovery/probes, query count/N+1, graph algorithms/bulk work, commits/GC, daemon/pool, gateway, async outbox, Dolt sizing, catalog/scheduler, retention, HA, restoration and sharding.</p>
+    <h3>Testing scorecard</h3>
+    <p>Gateway full unit and race suites pass; all script packages except three <code>realistic-fleet</code> httptest cases pass normal/race; those three are blocked by sandbox loopback-bind EPERM, not assertions. All-script vet passes. Focused direct-provider/UOW tests and race/vet pass. The upstream-wide suite is not claimed: Docker/testcontainers and loopback constraints prevented completion.</p>
+    <h3>Promotion decision</h3>
+    <p><span class="hold">HOLD production and merge of the broad lab.</span> Promote only the architecture verdict, authoritative retention CAS oracle, and small reviewable UOW pieces. Historical gateway metrics remain architecture evidence until the current committed source is rerun.</p>
+    <h3>Risks and follow-up evaluation</h3>
+    <p>Highest risks are identity revocation, stale control-plane rollback, cross-team noisy neighbors, failover epoch automation, terminal inspector exactness, outbox delivery, long-term history/memory and operator complexity. The five-step convergence experiment is the trace-to-evaluation follow-up.</p>
+  </div>
+
+  <div class="appendix"><h3>Architecture decision record and rejected alternatives</h3>
+    <p><b>Decision:</b> high-level near-data terminal service. <b>In scope:</b> Beads semantics, one repo DB, team cell, deterministic recovery. <b>Out:</b> orchestration policy in Beads core, global graph sharding before need, production deployment.</p>
+    <p><b>Rejected:</b> direct WAN SQL tuning as final answer; workstation daemon; local-queue 202 authority; fixed warm pool per repo; 1 GiB Go limit; disabling auto-GC; immediate <code>ae</code> sharding; unsafe global-role cluster harness; claiming separate prototypes form a fleet.</p>
+    <p><b>Confidence:</b> high that a near-data boundary is required; medium that the decomposed mechanisms converge without another redesign; low that production readiness can be inferred from current evidence.</p>
+  </div>
+
+  <div class="appendix"><h3>Code-review and upstream boundary</h3>
+    <p>The UOW Draft preserves upstream PR #4675 contributor history. Focused fixes are transaction cleanup, fresh-snapshot retry, heartbeat parity and atomic ready/claim. Eighteen callers remain. The gateway branch is a fork-only lab Draft, does not supersede upstream PRs #3458, #4167 or #4581, and is not suitable as one broad upstream PR. Split future upstream work by storage cleanup, command parity, query/bulk improvements and benchmark tooling.</p>
+  </div>
+
+  <p class="small">Executive verdict: architecture direction proven; production implementation incomplete. Terminal outcome: <b>GATEWAY_ARCHITECTURE_REQUIRED</b>.</p>
+</div></body></html>

@@ -1,0 +1,228 @@
+{
+  "schema_version": 1,
+  "count": 37,
+  "entries": [
+    {
+      "id": "F0",
+      "hypothesis": "The original gateway proves fleet and hot-database scale.",
+      "decision": "REJECT",
+      "reason": "The original test proved the network boundary and a correctness baseline, not concurrent Dolt writers or fleet capacity."
+    },
+    {
+      "id": "F1",
+      "hypothesis": "A fixed prewarmed pool per repository database is acceptable at fleet scale.",
+      "decision": "REJECT",
+      "reason": "Connections scale directly with database count and violate the frozen cold-fleet budget."
+    },
+    {
+      "id": "F2",
+      "hypothesis": "Increasing same-database writers continues to improve throughput materially.",
+      "decision": "REJECT",
+      "reason": "The throughput knee is near 8-32 writers; 100 writers inflate tail latency without throughput gain."
+    },
+    {
+      "id": "F3",
+      "hypothesis": "Repository-per-database partitioning provides useful concurrency.",
+      "decision": "RETAIN_WITH_LIMIT",
+      "reason": "Partitioning helps, but the exact Dolt lock scope was not isolated and shared-engine interference remains."
+    },
+    {
+      "id": "F4",
+      "hypothesis": "A hot ae database on a shared Dolt process does not materially affect cold repositories.",
+      "decision": "REJECT",
+      "reason": "The noisy-neighbor gate failed; ae needs a real execution and storage bulkhead experiment."
+    },
+    {
+      "id": "F5",
+      "hypothesis": "Dolt commits alone prevent same-value lost updates.",
+      "decision": "REJECT",
+      "reason": "All transactions committed while fifteen increments were lost; serialize, CAS, or force a shared revision conflict."
+    },
+    {
+      "id": "F6",
+      "hypothesis": "Independent snapshot prevalidation preserves graph acyclicity under parallel writers.",
+      "decision": "REJECT",
+      "reason": "Opposite edges were individually valid and jointly cyclic; structural mutations need a database-wide barrier or proven serializable invariant protocol."
+    },
+    {
+      "id": "F7",
+      "hypothesis": "Concurrent same-principal claim delivery is naturally idempotent.",
+      "decision": "REJECT",
+      "reason": "The end state looked singular but the audit/effect was duplicated; subject-scoped idempotency and a semantic conflict key are required."
+    },
+    {
+      "id": "F8",
+      "hypothesis": "Conflicting distinct-principal claims silently create multiple winners.",
+      "decision": "RETAIN_WITH_RETRY_CONTRACT",
+      "reason": "One winner emerged in the raw probe, but clients require bounded conflict classification and deterministic retry/status behavior."
+    },
+    {
+      "id": "F9",
+      "hypothesis": "Hundreds of tiny databases have negligible idle process cost.",
+      "decision": "REJECT",
+      "reason": "Even tiny synthetic databases create a measurable memory and descriptor multiplier; cell size must be bounded and measured."
+    },
+    {
+      "id": "F10",
+      "hypothesis": "Naive multiwriter gateway can be promoted after the fleet run.",
+      "decision": "HOLD",
+      "reason": "Retain the near-data boundary, replace the singleton prototype with a cellular actor design, and block production on canonical Beads, HA/restore, and open-loop ae tests."
+    },
+    {
+      "id": "F11",
+      "hypothesis": "The gateway direct domain/UOW path preserves canonical Beads claim, lease, row_lock, close, and conflict-retry semantics.",
+      "decision": "REJECT_GATEWAY_SEMANTIC_PATH",
+      "reason": "The prototype bypasses canonical issueops lease/row_lock behavior and its commit-only retry cannot safely recover a transaction conflict."
+    },
+    {
+      "id": "F12",
+      "hypothesis": "A typed Dolt serialization failure can be recovered by replaying the complete operation in a fresh unit of work.",
+      "decision": "RETAIN_CANDIDATE",
+      "reason": "The native-Dolt test proves fresh-snapshot whole-UOW retry for typed conflicts while ambiguous generic connection errors remain non-retryable."
+    },
+    {
+      "id": "F13",
+      "hypothesis": "The gateway can be bootstrapped without granting a fleet-wide or production-capable database identity.",
+      "decision": "RETAIN_LAB_GUARD",
+      "reason": "The corrected bootstrap fails closed on identity/grant drift and passed twice against physically separate disposable loopback servers; it is deliberately not a fleet credential design."
+    },
+    {
+      "id": "F14",
+      "hypothesis": "An exact client retry duplicates a successful gateway mutation.",
+      "decision": "REJECT_HYPOTHESIS_RETAIN_PROTOCOL",
+      "reason": "The transaction-scoped receipt and queue identity returned the original result without another effect."
+    },
+    {
+      "id": "F15",
+      "hypothesis": "A process crash after Dolt commit but before queue/HTTP success causes blind replay or lost success.",
+      "decision": "REJECT_HYPOTHESIS_RETAIN_PROTOCOL",
+      "reason": "Restart found the authoritative Dolt receipt and classified the ambiguous result exactly once."
+    },
+    {
+      "id": "F16",
+      "hypothesis": "A process crash after durable queue lease but before Dolt execution loses or duplicates the command.",
+      "decision": "REJECT_HYPOTHESIS_WITH_SINGLE_HOST_LIMIT",
+      "reason": "The persisted SQLite admission recovered on process restart, but losing the SQLite host after a 202 remains a fatal asynchronous-RPO gap."
+    },
+    {
+      "id": "F17",
+      "hypothesis": "The first 120-second busy-profile run is sufficient fleet-capacity proof.",
+      "decision": "HOLD_LOAD_FIDELITY",
+      "reason": "Latency and observed correctness passed, but synchronized first-think startup under-offered the modeled busy load by 18 percent and exact operation IDs were absent from report samples; both gates are being repaired before promotion."
+    },
+    {
+      "id": "F18",
+      "hypothesis": "A terminal success acknowledged with HTTP 200 is lost or duplicated after complete loss of the local SQLite projection.",
+      "decision": "RETAIN_NARROW_SUCCESS_PROTOCOL",
+      "reason": "A deterministic terminal ID and canonical Dolt receipt reconstructed the acknowledged success without another effect; this does not cover failed outcomes, key rotation, legacy namespace migration, or retention."
+    },
+    {
+      "id": "F19",
+      "hypothesis": "The corrected realistic busy run cannot sustain the frozen AI-paced load at 150 ms RTT with exact cross-database effects.",
+      "decision": "REJECT_HYPOTHESIS_RETAIN_REALISTIC_BUSY_CAPACITY",
+      "reason": "The corrected run passed load fidelity, latency, bounded backlog, full outcome accounting, and independent exact-effect/isolation inspection."
+    },
+    {
+      "id": "F20",
+      "hypothesis": "A coordinated high human/agent burst overwhelms the dedicated database lanes or violates correctness at 150 ms RTT.",
+      "decision": "REJECT_HYPOTHESIS_RETAIN_DEDICATED_LANES",
+      "reason": "The realistic coordinated burst stayed inside every original latency gate and the independent quiescent inspector proved every expected effect exactly once with team/database isolation."
+    },
+    {
+      "id": "F21",
+      "hypothesis": "The terminal-first prototype is already leak-proof and fleet-promotable after successful projection-loss recovery.",
+      "decision": "REJECT_PREMATURE_PROMOTION",
+      "reason": "The successful terminal recovery closes one crash window only; canonical failure outcomes, versioned key epochs, bounded retention, and overload isolation must be implemented and fault-tested."
+    },
+    {
+      "id": "F22",
+      "hypothesis": "A fleet cell needs one fixed warm pool per repository or will miss practical latency under pool churn.",
+      "decision": "REJECT_FIXED_POOLS_RETAIN_LAZY_CELL_BUDGET",
+      "reason": "The adversarial round-robin churn stayed bounded and below command SLO scale while fixed prewarm multiplied connections; real Beads fleet routing/fairness still requires a multi-database cell integration."
+    },
+    {
+      "id": "F23",
+      "hypothesis": "F19 and F20 constitute full fleet-capacity promotion evidence.",
+      "decision": "SUPERSEDE_F19_F20_CAPACITY_CLAIM",
+      "reason": "The exact-effect and original p95 subsets pass, but terminal-v2 durability, window count, fleet cardinality, utilization, recovery, and the stricter 3-second tail gate do not."
+    },
+    {
+      "id": "F24",
+      "hypothesis": "Two gateway peers can turn ambiguous retries into duplicate or conflicting terminal outcomes.",
+      "decision": "RETAIN_TERMINAL_V2_COMPONENT",
+      "reason": "Canonical Dolt outcomes dominate rebuildable queues and prevent duplicate execution; this remains a single-primary component proof."
+    },
+    {
+      "id": "F25",
+      "hypothesis": "A terminal HTTP 200 can survive acknowledged Dolt replication, primary loss, promotion, and empty gateway projection.",
+      "decision": "RETAIN_CLUSTER_ACK_GUARD_HOLD_AUTOMATIC_HA",
+      "reason": "Dolt replication timeout is a SQL warning that must be checked on the pinned session; epoch/topology recovery remains manual and same-host."
+    },
+    {
+      "id": "F26",
+      "hypothesis": "Signed routing, bounded fair scheduling, and lazy pools are already an integrated fleet cell.",
+      "decision": "REJECT_INTEGRATION_CLAIM_RETAIN_COMPONENTS",
+      "reason": "The mechanisms are separately useful prototypes, not one production request path."
+    },
+    {
+      "id": "F27",
+      "hypothesis": "A 100-database cell requires unbounded connections to sustain adversarial churn.",
+      "decision": "REJECT_HYPOTHESIS_RETAIN_28_32_BUDGET",
+      "reason": "Connections stayed below the server hard cap with zero request failures; long-soak memory/history bounds remained open."
+    },
+    {
+      "id": "F28",
+      "hypothesis": "Dolt SELECT FOR UPDATE is sufficient to bound concurrent producer and receipt admission.",
+      "decision": "REJECT_LOCK_ASSUMPTION_RETAIN_CAS_LEDGER",
+      "reason": "Real two-process races prove exact hard caps, rollback, crash windows, compaction, epoch reset, and tamper rejection."
+    },
+    {
+      "id": "F29",
+      "hypothesis": "A smaller Go memory limit or disabled Dolt auto-GC is the primary fleet fix.",
+      "decision": "REJECT_1GIB_AND_GC_TUNING_RETAIN_3GIB_HOLD_CANDIDATE",
+      "reason": "3GiB/GOGC100 bounded observed memory without material regression, but no 8-24h fixed-cardinality or garbage-trigger soak proves leak absence."
+    },
+    {
+      "id": "F30",
+      "hypothesis": "The Beads proxied mutation kernel can safely retry a conflicted commit on the same UOW.",
+      "decision": "RETAIN_PARTIAL_SAFETY_PATCH_HOLD_MERGE",
+      "reason": "Dirty-session leakage and three critical retries are fixed, but the proxied command surface is not transactionally complete."
+    },
+    {
+      "id": "F31",
+      "hypothesis": "A small direct-SQL patch can meet the distributed-team workload without a near-data service.",
+      "decision": "GATEWAY_ARCHITECTURE_REQUIRED",
+      "reason": "The remote-call floor is architectural. Near-data execution is viable, but the converged cell, fleet-scale terminal load, multi-node failure domains, restore fencing, authentication isolation, and long-soak resource plateaus remain production gates."
+    },
+    {
+      "id": "F32",
+      "hypothesis": "The authoritative real-Dolt retention proof can mutate any loopback Dolt server that happens to expose the expected database.",
+      "decision": "REJECT_UNATTESTED_MUTATION_RETAIN_SOURCE_BOUND_CAS_ORACLE",
+      "reason": "The c26c8325 rerun preserves every F28 concurrency and crash result while adding the exact pre-existing server-control identity gate and reproducible source/evidence checksum manifests; the older 2d258235 pointer is superseded."
+    },
+    {
+      "id": "F33",
+      "hypothesis": "A checksum bundle alone proves that the executed c26c8325 binary came from the recorded source tree.",
+      "decision": "REJECT_CHECKSUM_ONLY_RETAIN_DETERMINISTIC_SOURCE_BINDING",
+      "reason": "The original and clean-cache rebuild are byte-for-byte identical, closing the source-to-executable provenance gap for this single-node oracle; it does not promote the unintegrated gateway or fleet architecture."
+    },
+    {
+      "id": "F34",
+      "hypothesis": "The broad gateway laboratory can be published as one merge-ready or upstream-ready change.",
+      "decision": "REJECT_MERGE_CLAIM_RETAIN_FORK_ONLY_DRAFT",
+      "reason": "The Draft preserves the architecture evidence and source review trail while explicitly holding merge, upstream submission, and production deployment; future contributions must be split into narrow storage, tooling, and protocol slices."
+    },
+    {
+      "id": "F35",
+      "hypothesis": "Completed lab compute can remain running without affecting the final safety verdict.",
+      "decision": "REJECT_IDLE_SPEND_STOP_RESOURCES",
+      "reason": "Both synthetic local Dolt listeners were terminated and the disposable VM was stopped; evidence and the boot disk remain available until the configured TTL deletion."
+    },
+    {
+      "id": "F36",
+      "hypothesis": "The operator fork's stale main branch is a truthful review base for the UOW safety Draft.",
+      "decision": "REJECT_STALE_MAIN_BASE_RETAIN_CONTRIBUTOR_LINEAGE",
+      "reason": "The frozen base now points exactly to upstream PR #4675, removing thousands of unrelated fork-behind changes while preserving attribution and the four reviewed safety commits."
+    }
+  ]
+}

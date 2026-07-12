@@ -95,7 +95,14 @@ func (t *doltServerTx) poisonConn() {
 	if t.conn == nil {
 		return
 	}
-	_ = t.conn.Raw(func(any) error { return driver.ErrBadConn })
-	_ = t.conn.Close()
+	discardSQLConn(t.conn)
 	t.conn = nil
+}
+
+func discardSQLConn(conn *sql.Conn) {
+	if conn == nil {
+		return
+	}
+	_ = conn.Raw(func(any) error { return driver.ErrBadConn })
+	_ = conn.Close()
 }

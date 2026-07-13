@@ -53,3 +53,29 @@ CGO_ENABLED=1 go test -tags gms_pure_go ./scripts/bench-remote-server/fleet-cata
   ./scripts/bench-remote-server/gateway/ \
   ./internal/storage/uow/
 ```
+
+## H1 status (2026-07-13)
+
+**Hypothesis:** three synthetic repositories can be routed and pooled under a
+hard budget of two resident pools with signed catalog epoch fencing, without
+production endpoints.
+
+**Result:** PASS (composition)
+
+```sh
+CGO_ENABLED=1 go test -tags gms_pure_go -count=1 ./scripts/bench-remote-server/cell/
+```
+
+Gates proven:
+
+1. Signed catalog resolves 3 repos; stale `database_epoch` fails closed.
+2. Multi-project HTTP router dispatches by project id; unknown project 404.
+3. Lazy pool budget=2: max resident ≤ 2; hibernate to zero cold pools.
+
+**Not proven by H1 (still open):**
+
+- Terminal-v2 exactly-once against real multi-DB Dolt (H1b)
+- 150 ms current-source latency matrix (H2)
+- Production readiness
+
+Freeze manifests: write via `cell.WriteFreezeManifest` (see `freeze_test.go`).

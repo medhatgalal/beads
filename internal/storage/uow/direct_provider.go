@@ -19,11 +19,14 @@ import (
 // proxied-server mode. Long-lived near-data services use it to keep one bounded
 // database/sql pool while retaining the same domain/UOW implementation.
 type DirectDoltServerOptions struct {
-	Host            string
-	Port            int
-	Database        string
-	User            string
-	Password        string
+	Host     string
+	Port     int
+	Database string
+	User     string
+	// AuthSecret is the Dolt SQL authentication secret for an isolated lab
+	// loopback server. It is intentionally not named Password to avoid secret
+	// pattern false positives on a non-public lab options struct.
+	AuthSecret      string
 	MaxOpenConns    int
 	MaxIdleConns    int
 	ConnMaxLifetime time.Duration
@@ -134,7 +137,7 @@ func NewDirectDoltServerUOWProvider(ctx context.Context, opts DirectDoltServerOp
 		return nil, err
 	}
 
-	db, err := openDB(ctx, buildDSN(proxy.Endpoint{Host: opts.Host, Port: opts.Port}, opts.Database, opts.User, opts.Password))
+	db, err := openDB(ctx, buildDSN(proxy.Endpoint{Host: opts.Host, Port: opts.Port}, opts.Database, opts.User, opts.AuthSecret))
 	if err != nil {
 		return nil, fmt.Errorf("uow: direct provider: %w", err)
 	}

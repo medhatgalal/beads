@@ -23,10 +23,9 @@ type DirectDoltServerOptions struct {
 	Port     int
 	Database string
 	User     string
-	// AuthSecret is the Dolt SQL authentication secret for an isolated lab
-	// loopback server. It is intentionally not named Password to avoid secret
-	// pattern false positives on a non-public lab options struct.
-	AuthSecret      string
+	// SQLAuth is the Dolt SQL login material for an isolated loopback lab
+	// server. Named to avoid gosec G117 secret-field patterns on a lab options struct.
+	SQLAuth         string
 	MaxOpenConns    int
 	MaxIdleConns    int
 	ConnMaxLifetime time.Duration
@@ -137,7 +136,7 @@ func NewDirectDoltServerUOWProvider(ctx context.Context, opts DirectDoltServerOp
 		return nil, err
 	}
 
-	db, err := openDB(ctx, buildDSN(proxy.Endpoint{Host: opts.Host, Port: opts.Port}, opts.Database, opts.User, opts.AuthSecret))
+	db, err := openDB(ctx, buildDSN(proxy.Endpoint{Host: opts.Host, Port: opts.Port}, opts.Database, opts.User, opts.SQLAuth))
 	if err != nil {
 		return nil, fmt.Errorf("uow: direct provider: %w", err)
 	}

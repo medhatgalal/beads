@@ -116,7 +116,7 @@ func run(cfg gatewayConfig) error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 	provider, err := uow.NewDirectDoltServerUOWProvider(ctx, uow.DirectDoltServerOptions{
-		Host: cfg.Host, Port: cfg.Port, Database: cfg.Database, User: sqlUser, AuthSecret: string(password),
+		Host: cfg.Host, Port: cfg.Port, Database: cfg.Database, User: sqlUser, SQLAuth: string(password),
 		MaxOpenConns: cfg.MaxOpen, MaxIdleConns: cfg.MaxIdle,
 		ConnMaxLifetime: 30 * time.Minute, ConnMaxIdleTime: 20 * time.Second,
 	})

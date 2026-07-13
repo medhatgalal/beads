@@ -34,7 +34,7 @@ func main() {
 	for i := 0; i < 3; i++ {
 		name := fmt.Sprintf("beads_perf_lab_cell_%d", i)
 		p, err := uow.NewDirectDoltServerUOWProvider(ctx, uow.DirectDoltServerOptions{
-			Host: "127.0.0.1", Port: 13360, Database: name, User: "root", AuthSecret: "",
+			Host: "127.0.0.1", Port: 13360, Database: name, User: "root", SQLAuth: "",
 			MaxOpenConns: 2, MaxIdleConns: 1, ConnMaxLifetime: time.Hour, ConnMaxIdleTime: 5 * time.Minute,
 		})
 		if err != nil {
